@@ -1,5 +1,7 @@
 # SpendWise AI — Smart Expense Anomaly Detector
 
+> AI-powered smart expense tracker with anomaly detection, budgeting, analytics, and Excel reports.
+
 SpendWise AI is a web-based personal expense management application that helps users track spending, manage budgets, view financial summaries, and identify potentially unusual transactions using machine learning.
 
 ## Features
@@ -9,7 +11,7 @@ SpendWise AI is a web-based personal expense management application that helps u
 - **Budget Management:** Set category-based budgets and review spending.
 - **AI Anomaly Detection:** Identify potentially unusual transactions using an Isolation Forest model.
 - **Dashboard and Analytics:** Review expense summaries and spending patterns.
-- **Reports and Exports:** Export financial reports to CSV and Excel.
+- **Reports and Exports:** Export financial reports to Excel (.xlsx) and CSV.
 - **Data Isolation:** Keep each user's expenses and budgets separate.
 - **Demo Data:** Support for sample data to demonstrate application functionality.
 
