@@ -1,0 +1,185 @@
+{% extends "base.html" %}
+
+{% block title %}AI Anomaly Detection{% endblock %}
+{% block topbar_title %}AI Anomaly Intelligence Center{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="page-title-group">
+    <h2>AI Anomaly Detection & Review</h2>
+    <p class="page-subtitle">Explainable unsupervised machine-learning flags for atypical spending behavior</p>
+  </div>
+  <form action="{{ url_for('retrain_model') }}" method="POST" style="margin: 0;">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <button type="submit" class="btn btn-primary btn-sm">
+      <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+      Re-evaluate All Data
+    </button>
+  </form>
+</div>
+
+<!-- Model Diagnostics & Educational Card -->
+<div class="card" style="background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%); color: #ffffff; border: none; margin-bottom: 2rem;">
+  <div class="card-body" style="padding: 1.5rem 1.75rem;">
+    <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 1rem;">
+      <div>
+        <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.35rem;">
+          <span style="background: rgba(99, 102, 241, 0.3); color: #c7d2fe; font-size: 0.72rem; font-weight: 700; padding: 0.2rem 0.6rem; border-radius: 9999px; text-transform: uppercase; letter-spacing: 0.05em;">
+            Machine Learning Engine
+          </span>
+          <span style="font-size: 0.78rem; color: #94a3b8;">Scikit-learn IsolationForest</span>
+        </div>
+        <h3 style="font-size: 1.25rem; font-weight: 700; color: #ffffff;">Statistical Outlier Isolation</h3>
+        <p style="font-size: 0.85rem; color: #cbd5e1; max-width: 680px; margin-top: 0.35rem; line-height: 1.5;">
+          IsolationForest constructs an ensemble of isolation trees. Atypical transactions require fewer random splits to isolate, resulting in shorter path lengths. It highlights mathematical spending deviations—<strong>not fraud certainty</strong>.
+        </p>
+      </div>
+
+      <div style="display: flex; gap: 1.5rem; background: rgba(255, 255, 255, 0.07); padding: 0.85rem 1.25rem; border-radius: var(--radius-md); border: 1px solid rgba(255, 255, 255, 0.1);">
+        <div>
+          <div style="font-size: 0.7rem; color: #94a3b8; text-transform: uppercase;">Status</div>
+          <div style="font-size: 0.95rem; font-weight: 700; color: {% if model_info.is_fitted %}#34d399{% else %}#fbbf24{% endif %};">
+            {% if model_info.is_fitted %}Active Profile{% else %}Awaiting Baseline{% endif %}
+          </div>
+        </div>
+        <div>
+          <div style="font-size: 0.7rem; color: #94a3b8; text-transform: uppercase;">Training Samples</div>
+          <div style="font-size: 0.95rem; font-weight: 700; color: #ffffff;">{{ model_info.samples_count }} txns</div>
+        </div>
+        <div>
+          <div style="font-size: 0.7rem; color: #94a3b8; text-transform: uppercase;">Contamination</div>
+          <div style="font-size: 0.95rem; font-weight: 700; color: #ffffff;">{{ (model_info.contamination * 100)|round|int }}%</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Filters and Toggles -->
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem; flex-wrap: wrap; gap: 1rem;">
+  <!-- Review Status Tabs -->
+  <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+    <a href="{{ url_for('anomalies', status='all', category=category_filter) }}" class="btn btn-sm {% if status_filter == 'all' %}btn-primary{% else %}btn-secondary{% endif %}">
+      All Flagged ({{ total_anomalies }})
+    </a>
+    <a href="{{ url_for('anomalies', status='pending', category=category_filter) }}" class="btn btn-sm {% if status_filter == 'pending' %}btn-primary{% else %}btn-secondary{% endif %}">
+      Pending Review ({{ pending_count }})
+    </a>
+    <a href="{{ url_for('anomalies', status='reviewed', category=category_filter) }}" class="btn btn-sm {% if status_filter == 'reviewed' %}btn-primary{% else %}btn-secondary{% endif %}">
+      Reviewed ({{ reviewed_count }})
+    </a>
+    <a href="{{ url_for('anomalies', status='dismissed', category=category_filter) }}" class="btn btn-sm {% if status_filter == 'dismissed' %}btn-primary{% else %}btn-secondary{% endif %}">
+      Dismissed ({{ dismissed_count }})
+    </a>
+  </div>
+
+  <!-- Category Filter -->
+  <form method="GET" action="{{ url_for('anomalies') }}" style="display: flex; gap: 0.5rem; align-items: center;">
+    <input type="hidden" name="status" value="{{ status_filter }}">
+    <select name="category" class="form-select" style="width: auto; padding: 0.45rem 0.75rem; font-size: 0.85rem;" onchange="this.form.submit()">
+      <option value="all" {% if category_filter == 'all' %}selected{% endif %}>All Categories</option>
+      {% for cat in categories %}
+        <option value="{{ cat }}" {% if category_filter == cat %}selected{% endif %}>{{ cat }}</option>
+      {% endfor %}
+    </select>
+  </form>
+</div>
+
+<!-- Anomaly Alerts List -->
+{% if anomalies %}
+  <div style="display: flex; flex-direction: column; gap: 1rem;">
+    {% for alert in anomalies %}
+      {% set r = alert.get_reasons_dict() %}
+      <div class="anomaly-alert-card">
+        <div class="anomaly-header">
+          <div class="anomaly-title">
+            <span>{{ alert.description }}</span>
+            <span class="category-pill">{{ alert.category }}</span>
+            <span style="font-size: 0.82rem; color: #64748b; font-weight: normal;">• {{ alert.date.strftime('%d %B %Y') }}</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 0.75rem;">
+            <span style="font-size: 1.25rem; font-weight: 800; color: var(--danger);">
+              {{ currency_symbol }}{{ "%.2f"|format(alert.amount) }}
+            </span>
+            {% if alert.review_status == 'reviewed' %}
+              <span class="badge badge-reviewed">Reviewed</span>
+            {% elif alert.review_status == 'dismissed' %}
+              <span class="badge badge-dismissed">Dismissed</span>
+            {% else %}
+              <span class="badge badge-pending">Needs Review</span>
+            {% endif %}
+          </div>
+        </div>
+
+        <!-- Metrics Row -->
+        <div class="anomaly-metrics">
+          <div class="metric-item">
+            <span class="metric-label">Unusualness Index</span>
+            <span class="metric-val" style="color: var(--danger);">{{ alert.anomaly_score if alert.anomaly_score is not none else 'N/A' }} / 1.0</span>
+          </div>
+          <div class="metric-item">
+            <span class="metric-label">Decision Score</span>
+            <span class="metric-val">{{ alert.raw_score if alert.raw_score is not none else 'N/A' }}</span>
+          </div>
+          <div class="metric-item">
+            <span class="metric-label">Historical '{{ alert.category }}' Avg</span>
+            <span class="metric-val">{{ currency_symbol }}{{ "%.2f"|format(r.get('category_mean', 0.0)) }}</span>
+          </div>
+          <div class="metric-item">
+            <span class="metric-label">Payment Method</span>
+            <span class="metric-val">{{ alert.payment_method }}</span>
+          </div>
+        </div>
+
+        <!-- Explanation Text -->
+        <div class="anomaly-explanation">
+          <strong>AI Analysis:</strong> {{ r.get('summary', 'Transaction flagged as an outlier.') }}
+          <br>
+          <span style="color: #0f172a; margin-top: 0.2rem; display: inline-block;">{{ r.get('category_comparison', '') }}</span>
+        </div>
+
+        <!-- Limitation Note -->
+        <div class="anomaly-limitation">
+          <strong>Model Limitation:</strong> {{ r.get('limitation', 'Statistical divergence does not equate to unauthorized transaction or fraud.') }}
+        </div>
+
+        <!-- Actions -->
+        <div class="anomaly-actions">
+          <button type="button" class="btn btn-secondary btn-sm" onclick='viewExpenseDetails({{ alert.to_dict()|tojson }})'>
+            View Details
+          </button>
+
+          {% if alert.review_status != 'reviewed' %}
+            <form action="{{ url_for('review_anomaly', expense_id=alert.id) }}" method="POST" style="margin: 0;">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <input type="hidden" name="status" value="reviewed">
+              <button type="submit" class="btn btn-success btn-sm">Mark as Reviewed</button>
+            </form>
+          {% endif %}
+
+          {% if alert.review_status != 'dismissed' %}
+            <form action="{{ url_for('review_anomaly', expense_id=alert.id) }}" method="POST" style="margin: 0;">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <input type="hidden" name="status" value="dismissed">
+              <button type="submit" class="btn btn-secondary btn-sm">Dismiss Alert</button>
+            </form>
+          {% endif %}
+
+          <a href="{{ url_for('edit_expense', expense_id=alert.id) }}" class="btn btn-secondary btn-sm" style="margin-left: auto;">Edit Transaction</a>
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+{% else %}
+  <div class="card">
+    <div class="card-body">
+      <div class="empty-state">
+        <svg class="empty-state-icon" fill="none" stroke="#10b981" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        <h3>No Flagged Transactions Found</h3>
+        <p>No transactions match your current review status or category filter. All current expenses follow typical spending behavior.</p>
+        <a href="{{ url_for('anomalies', status='all', category='all') }}" class="btn btn-secondary btn-sm">Reset Filters</a>
+      </div>
+    </div>
+  </div>
+{% endif %}
+{% endblock %}

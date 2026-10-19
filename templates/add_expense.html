@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+
+{% block title %}Add Expense{% endblock %}
+{% block topbar_title %}Record Transaction{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="page-title-group">
+    <h2>Record New Expense</h2>
+    <p class="page-subtitle">Add your daily expense. The AI model will evaluate it against your historical spending baseline.</p>
+  </div>
+  <a href="{{ url_for('history') }}" class="btn btn-secondary btn-sm">&larr; Back to History</a>
+</div>
+
+<div style="max-width: 680px; margin: 0 auto;">
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">
+        <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
+        Expense Details
+      </div>
+      <span style="font-size: 0.8rem; color: #64748b;">All fields marked * are required</span>
+    </div>
+    <div class="card-body">
+      <form action="{{ url_for('add_expense') }}" method="POST">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <!-- Description -->
+        <div class="form-group">
+          <label class="form-label" for="description">Expense Description *</label>
+          <input type="text" id="description" name="description" class="form-control" placeholder="e.g. Weekly Groceries, College Books, Dinner" value="{{ form_data.get('description', '') }}" required maxlength="255">
+          <span class="form-text">Brief, clear title for this transaction.</span>
+        </div>
+
+        <div class="form-row">
+          <!-- Amount -->
+          <div class="form-group">
+            <label class="form-label" for="amount">Amount (in Indian Rupees ₹) *</label>
+            <div class="input-currency-wrapper">
+              <span class="currency-addon">₹</span>
+              <input type="number" step="0.01" min="0.01" max="10000000" id="amount" name="amount" class="form-control" placeholder="0.00" value="{{ form_data.get('amount', '') }}" required>
+            </div>
+            <span class="form-text">Positive amount in rupees.</span>
+          </div>
+
+          <!-- Transaction Date -->
+          <div class="form-group">
+            <label class="form-label" for="date">Transaction Date *</label>
+            <input type="date" id="date" name="date" class="form-control" value="{{ form_data.get('date', today_str) }}" required>
+            <span class="form-text">Date the expense occurred.</span>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <!-- Category -->
+          <div class="form-group">
+            <label class="form-label" for="category">Category *</label>
+            <select id="category" name="category" class="form-select" required>
+              <option value="" disabled {% if not form_data.get('category') %}selected{% endif %}>Select category...</option>
+              {% for cat in categories %}
+                <option value="{{ cat }}" {% if form_data.get('category') == cat %}selected{% endif %}>{{ cat }}</option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <!-- Payment Method -->
+          <div class="form-group">
+            <label class="form-label" for="payment_method">Payment Method *</label>
+            <select id="payment_method" name="payment_method" class="form-select" required>
+              <option value="" disabled {% if not form_data.get('payment_method') %}selected{% endif %}>Select payment method...</option>
+              {% for pm in payment_methods %}
+                <option value="{{ pm }}" {% if form_data.get('payment_method') == pm %}selected{% endif %}>{{ pm }}</option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+
+        <!-- Optional Notes -->
+        <div class="form-group">
+          <label class="form-label" for="notes">Additional Notes (Optional)</label>
+          <textarea id="notes" name="notes" rows="3" class="form-control" placeholder="Optional details, merchant name, or reason for expense...">{{ form_data.get('notes', '') }}</textarea>
+        </div>
+
+        <div style="background: #f8fafc; border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 0.9rem; margin-bottom: 1.5rem; display: flex; align-items: flex-start; gap: 0.75rem;">
+          <svg width="20" height="20" fill="none" stroke="#6366f1" viewBox="0 0 24 24" style="flex-shrink: 0; margin-top: 2px;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          <div style="font-size: 0.8rem; color: #475569; line-height: 1.4;">
+            <strong>AI Anomaly Profiling:</strong> Once recorded, this expense will be checked against your historical category averages using the local IsolationForest machine learning model.
+          </div>
+        </div>
+
+        <div style="display: flex; justify-content: flex-end; gap: 0.75rem;">
+          <a href="{{ url_for('history') }}" class="btn btn-secondary">Cancel</a>
+          <button type="submit" class="btn btn-primary">Save Expense</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

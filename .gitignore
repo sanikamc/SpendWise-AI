@@ -1,0 +1,51 @@
+# Python bytecode & cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Environments
+.venv/
+venv/
+ENV/
+env/
+
+# Instance & Database files (never commit user databases)
+instance/
+*.db
+*.sqlite3
+
+# Models cache & temporary artifacts
+*.joblib
+*.pkl
+
+# Testing & coverage
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Operating System files
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+.DS_Store
+
+# IDE & Editor files
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# Environment variables and secrets
+.env
+.env.*
+!.env.example
+
+# Local uploads and generated files
+uploads/
+# Compiled Python files
+*.pyc
+
+# Local database and generated data
+instance/

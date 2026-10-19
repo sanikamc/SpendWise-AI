@@ -1,0 +1,196 @@
+{% extends "base.html" %}
+
+{% block title %}Transaction History{% endblock %}
+{% block topbar_title %}Full Transaction Ledger{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="page-title-group">
+    <h2>Transaction History</h2>
+    <p class="page-subtitle">Search, filter, edit, and analyze all recorded personal financial expenses</p>
+  </div>
+  <a href="{{ url_for('add_expense') }}" class="btn btn-primary btn-sm">+ Add New Expense</a>
+</div>
+
+<!-- Search & Filter Controls -->
+<div class="card" style="margin-bottom: 1.5rem;">
+  <div class="card-body" style="padding: 1.25rem 1.5rem;">
+    <form method="GET" action="{{ url_for('history') }}">
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; align-items: flex-end;">
+        <!-- Search Keyword -->
+        <div class="form-group" style="margin-bottom: 0;">
+          <label class="form-label" style="font-size: 0.78rem;">Search Description / Notes</label>
+          <input type="text" name="q" class="form-control" placeholder="Search keywords..." value="{{ search_query }}">
+        </div>
+
+        <!-- Category Filter -->
+        <div class="form-group" style="margin-bottom: 0;">
+          <label class="form-label" style="font-size: 0.78rem;">Category</label>
+          <select name="category" class="form-select">
+            <option value="all" {% if selected_category == 'all' %}selected{% endif %}>All Categories</option>
+            {% for cat in categories %}
+              <option value="{{ cat }}" {% if selected_category == cat %}selected{% endif %}>{{ cat }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <!-- Anomaly Status Filter -->
+        <div class="form-group" style="margin-bottom: 0;">
+          <label class="form-label" style="font-size: 0.78rem;">AI Anomaly Status</label>
+          <select name="status" class="form-select">
+            <option value="all" {% if selected_status == 'all' %}selected{% endif %}>All Records</option>
+            <option value="anomalies" {% if selected_status == 'anomalies' %}selected{% endif %}>Flagged Outliers Only</option>
+            <option value="normal" {% if selected_status == 'normal' %}selected{% endif %}>Typical Spending Only</option>
+            <option value="pending" {% if selected_status == 'pending' %}selected{% endif %}>Pending Review</option>
+            <option value="reviewed" {% if selected_status == 'reviewed' %}selected{% endif %}>Reviewed</option>
+          </select>
+        </div>
+
+        <!-- Sort Order -->
+        <div class="form-group" style="margin-bottom: 0;">
+          <label class="form-label" style="font-size: 0.78rem;">Sort By</label>
+          <select name="sort" class="form-select">
+            <option value="date_desc" {% if selected_sort == 'date_desc' %}selected{% endif %}>Date (Newest First)</option>
+            <option value="date_asc" {% if selected_sort == 'date_asc' %}selected{% endif %}>Date (Oldest First)</option>
+            <option value="amount_desc" {% if selected_sort == 'amount_desc' %}selected{% endif %}>Amount (Highest First)</option>
+            <option value="amount_asc" {% if selected_sort == 'amount_asc' %}selected{% endif %}>Amount (Lowest First)</option>
+          </select>
+        </div>
+
+        <!-- Buttons -->
+        <div style="display: flex; gap: 0.5rem;">
+          <button type="submit" class="btn btn-primary" style="flex-grow: 1;">Apply</button>
+          <a href="{{ url_for('history') }}" class="btn btn-secondary" title="Reset all filters">Reset</a>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Transactions Table -->
+<div class="card">
+  <div class="card-header">
+    <div class="card-title">
+      Transactions
+      <span style="font-size: 0.8rem; font-weight: normal; color: #64748b; margin-left: 0.5rem;">
+        (Showing {{ expenses|length }} of {{ pagination.total }} entries)
+      </span>
+    </div>
+  </div>
+  <div class="card-body" style="padding: 0;">
+    {% if expenses %}
+      <div class="table-responsive">
+        <table class="custom-table">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Date</th>
+              <th>Description</th>
+              <th>Category</th>
+              <th>Payment</th>
+              <th>Amount</th>
+              <th>AI Status</th>
+              <th>Review</th>
+              <th style="text-align: right;">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for exp in expenses %}
+              <tr class="{% if exp.is_anomaly %}tr-anomaly{% endif %}">
+                <td style="color: #64748b; font-size: 0.8rem;">#{{ exp.id }}</td>
+                <td>{{ exp.date.strftime('%d %b %Y') }}</td>
+                <td>
+                  <strong>{{ exp.description }}</strong>
+                  {% if exp.is_demo %}
+                    <span style="font-size: 0.68rem; background: #fef3c7; color: #b45309; padding: 0.1rem 0.35rem; border-radius: 3px; font-weight: 600; margin-left: 0.35rem;">Demo</span>
+                  {% endif %}
+                  {% if exp.notes %}
+                    <div style="font-size: 0.75rem; color: #64748b;">{{ exp.notes }}</div>
+                  {% endif %}
+                </td>
+                <td><span class="category-pill">{{ exp.category }}</span></td>
+                <td><span style="font-size: 0.8rem; color: #475569;">{{ exp.payment_method }}</span></td>
+                <td><strong>{{ currency_symbol }}{{ "%.2f"|format(exp.amount) }}</strong></td>
+                <td>
+                  {% if exp.is_anomaly %}
+                    <span class="badge badge-anomaly" title="IsolationForest flagged unusual spending pattern">
+                      ⚠️ Unusual ({{ exp.anomaly_score if exp.anomaly_score is not none else '' }})
+                    </span>
+                  {% elif exp.anomaly_label == "Insufficient data for reliable assessment" %}
+                    <span class="badge badge-insufficient">Pending Data</span>
+                  {% else %}
+                    <span class="badge badge-normal">Typical</span>
+                  {% endif %}
+                </td>
+                <td>
+                  {% if exp.is_anomaly %}
+                    {% if exp.review_status == 'reviewed' %}
+                      <span class="badge badge-reviewed">Reviewed</span>
+                    {% elif exp.review_status == 'dismissed' %}
+                      <span class="badge badge-dismissed">Dismissed</span>
+                    {% else %}
+                      <span class="badge badge-pending">Pending</span>
+                    {% endif %}
+                  {% else %}
+                    <span style="color: #94a3b8; font-size: 0.75rem;">—</span>
+                  {% endif %}
+                </td>
+                <td style="text-align: right; white-space: nowrap;">
+                  <button type="button" class="btn btn-secondary btn-sm" onclick='viewExpenseDetails({{ exp.to_dict()|tojson }})' title="View AI analysis and details">
+                    Details
+                  </button>
+                  <a href="{{ url_for('edit_expense', expense_id=exp.id) }}" class="btn btn-secondary btn-sm" title="Edit this record">
+                    Edit
+                  </a>
+                  <button type="button" class="btn btn-outline-danger btn-sm" onclick='confirmDeleteExpense({{ exp.id }}, {{ exp.description|tojson }}, {{ ("₹" ~ "%.2f"|format(exp.amount))|tojson }})' title="Delete this record">
+                    Delete
+                  </button>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Pagination Navigation -->
+      {% if pagination.pages > 1 %}
+        <div style="padding: 1.25rem;">
+          <div class="pagination">
+            {% if pagination.has_prev %}
+              <a href="{{ url_for('history', page=pagination.prev_num, q=search_query, category=selected_category, status=selected_status, sort=selected_sort) }}" class="page-link">&laquo; Prev</a>
+            {% else %}
+              <span class="page-link disabled">&laquo; Prev</span>
+            {% endif %}
+
+            {% for p in pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+              {% if p %}
+                {% if p == pagination.page %}
+                  <span class="page-link active">{{ p }}</span>
+                {% else %}
+                  <a href="{{ url_for('history', page=p, q=search_query, category=selected_category, status=selected_status, sort=selected_sort) }}" class="page-link">{{ p }}</a>
+                {% endif %}
+              {% else %}
+                <span class="page-link disabled">&hellip;</span>
+              {% endif %}
+            {% endfor %}
+
+            {% if pagination.has_next %}
+              <a href="{{ url_for('history', page=pagination.next_num, q=search_query, category=selected_category, status=selected_status, sort=selected_sort) }}" class="page-link">Next &raquo;</a>
+            {% else %}
+              <span class="page-link disabled">Next &raquo;</span>
+            {% endif %}
+          </div>
+        </div>
+      {% endif %}
+
+    {% else %}
+      <div class="empty-state">
+        <svg class="empty-state-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+        <h3>No Transactions Found</h3>
+        <p>No expense transactions match your active search and filter criteria.</p>
+        <a href="{{ url_for('history') }}" class="btn btn-secondary btn-sm">Clear All Filters</a>
+      </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

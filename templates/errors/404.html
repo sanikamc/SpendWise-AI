@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+
+{% block title %}404 - Page Not Found{% endblock %}
+{% block topbar_title %}Page Not Found{% endblock %}
+
+{% block content %}
+<div style="max-width: 520px; margin: 4rem auto; text-align: center;">
+  <div class="card" style="padding: 2.5rem 2rem;">
+    <div style="font-size: 4rem; font-weight: 800; color: var(--primary-purple); line-height: 1; margin-bottom: 0.5rem;">404</div>
+    <h3 style="font-size: 1.35rem; color: var(--text-main); margin-bottom: 0.75rem;">Page Not Found</h3>
+    <p style="font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 1.75rem; line-height: 1.5;">
+      The page or financial record you are looking for does not exist or has been moved.
+    </p>
+    <a href="{{ url_for('index') }}" class="btn btn-primary" style="display: inline-flex;">&larr; Return to Dashboard</a>
+  </div>
+</div>
+{% endblock %}

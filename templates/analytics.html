@@ -1,0 +1,331 @@
+{% extends "base.html" %}
+
+{% block title %}Spending Analytics{% endblock %}
+{% block topbar_title %}Financial Analytics & Visualizations{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="page-title-group">
+    <h2>Spending Analytics</h2>
+    <p class="page-subtitle">Deep dive into category allocations, payment trends, and historical spending velocity</p>
+  </div>
+</div>
+
+<!-- Filters Card -->
+<div class="card" style="margin-bottom: 1.5rem;">
+  <div class="card-body" style="padding: 1.25rem 1.5rem;">
+    <form method="GET" action="{{ url_for('analytics') }}">
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; align-items: flex-end;">
+        <div class="form-group" style="margin-bottom: 0;">
+          <label class="form-label" style="font-size: 0.78rem;">Category</label>
+          <select name="category" class="form-select">
+            <option value="all" {% if category == 'all' %}selected{% endif %}>All Categories</option>
+            {% for cat in categories %}
+              <option value="{{ cat }}" {% if category == cat %}selected{% endif %}>{{ cat }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="form-group" style="margin-bottom: 0;">
+          <label class="form-label" style="font-size: 0.78rem;">Payment Method</label>
+          <select name="payment_method" class="form-select">
+            <option value="all" {% if payment_method == 'all' %}selected{% endif %}>All Payment Methods</option>
+            {% for pm in payment_methods %}
+              <option value="{{ pm }}" {% if payment_method == pm %}selected{% endif %}>{{ pm }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="form-group" style="margin-bottom: 0;">
+          <label class="form-label" style="font-size: 0.78rem;">From Date</label>
+          <input type="date" name="start_date" class="form-control" value="{{ start_date }}">
+        </div>
+
+        <div class="form-group" style="margin-bottom: 0;">
+          <label class="form-label" style="font-size: 0.78rem;">To Date</label>
+          <input type="date" name="end_date" class="form-control" value="{{ end_date }}">
+        </div>
+
+        <div style="display: flex; gap: 0.5rem;">
+          <button type="submit" class="btn btn-primary" style="flex-grow: 1;">Filter</button>
+          <a href="{{ url_for('analytics') }}" class="btn btn-secondary" title="Reset all filters">Reset</a>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+
+{% if has_data %}
+<!-- Top Metrics Row -->
+<div class="stats-grid" style="margin-bottom: 1.5rem;">
+  <div class="stat-card">
+    <div class="stat-info">
+      <div class="stat-label">Filtered Spend</div>
+      <div class="stat-value">{{ currency_symbol }}{{ "%.2f"|format(total_amount) }}</div>
+      <div class="stat-sub">Across active filters</div>
+    </div>
+    <div class="stat-icon purple">
+      <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+    </div>
+  </div>
+
+  <div class="stat-card">
+    <div class="stat-info">
+      <div class="stat-label">Transactions</div>
+      <div class="stat-value">{{ total_txns }}</div>
+      <div class="stat-sub">Total matching entries</div>
+    </div>
+    <div class="stat-icon blue">
+      <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+    </div>
+  </div>
+
+  <div class="stat-card">
+    <div class="stat-info">
+      <div class="stat-label">Average Transaction</div>
+      <div class="stat-value">{{ currency_symbol }}{{ "%.2f"|format(avg_txn) }}</div>
+      <div class="stat-sub">Per expense average</div>
+    </div>
+    <div class="stat-icon green">
+      <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/></svg>
+    </div>
+  </div>
+</div>
+
+<!-- Charts Grid -->
+<div class="charts-grid" style="grid-template-columns: 1fr 1fr; margin-bottom: 1.5rem;">
+  <!-- Category Bar Chart -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">Category Spending Comparison</div>
+    </div>
+    <div class="card-body">
+      <div class="chart-container">
+        <canvas id="categoryBarChart"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- Payment Method Doughnut Chart -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">Payment Method Share</div>
+    </div>
+    <div class="card-body">
+      <div class="chart-container">
+        <canvas id="paymentMethodChart"></canvas>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Timeline Charts -->
+<div class="charts-grid" style="grid-template-columns: 1fr 1fr;">
+  <!-- Monthly Trend Chart -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">Monthly Spending Evolution</div>
+    </div>
+    <div class="card-body">
+      <div class="chart-container">
+        <canvas id="monthlyTrendChart"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- Daily Timeline Chart -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">Daily Expenditure Timeline</div>
+    </div>
+    <div class="card-body">
+      <div class="chart-container">
+        <canvas id="dailyTimelineChart"></canvas>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% else %}
+<div class="card">
+  <div class="card-body">
+    <div class="empty-state">
+      <svg class="empty-state-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+      <h3>No Data Matches Selected Filters</h3>
+      <p>Try adjusting your category, payment method, or date range parameters to visualize your spending habits.</p>
+      <a href="{{ url_for('analytics') }}" class="btn btn-secondary btn-sm">Clear All Filters</a>
+    </div>
+  </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_scripts %}
+{% if has_data %}
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  // 1. Category Bar Chart
+  const catDataObj = {{ cat_chart_json|safe }};
+  const catLabels = Object.keys(catDataObj);
+  const catVals = Object.values(catDataObj);
+
+  const catBarCtx = document.getElementById("categoryBarChart");
+  if (catBarCtx && catLabels.length > 0) {
+    new Chart(catBarCtx.getContext("2d"), {
+      type: "bar",
+      data: {
+        labels: catLabels,
+        datasets: [{
+          label: "Amount (₹)",
+          data: catVals,
+          backgroundColor: "rgba(99, 102, 241, 0.8)",
+          borderRadius: 6
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: function(ctx) { return "₹ " + ctx.parsed.y.toLocaleString("en-IN", { minimumFractionDigits: 2 }); }
+            }
+          }
+        },
+        scales: {
+          y: {
+            beginAtZero: true,
+            ticks: { callback: function(val) { return "₹" + val; } },
+            grid: { color: "#f1f5f9" }
+          },
+          x: { grid: { display: false } }
+        }
+      }
+    });
+  }
+
+  // 2. Payment Method Doughnut Chart
+  const pmDataObj = {{ pm_chart_json|safe }};
+  const pmLabels = Object.keys(pmDataObj);
+  const pmVals = Object.values(pmDataObj);
+
+  const pmCtx = document.getElementById("paymentMethodChart");
+  if (pmCtx && pmLabels.length > 0) {
+    const palette = ["#6366f1", "#10b981", "#3b82f6", "#f59e0b", "#ec4899", "#8b5cf6"];
+    new Chart(pmCtx.getContext("2d"), {
+      type: "doughnut",
+      data: {
+        labels: pmLabels,
+        datasets: [{
+          data: pmVals,
+          backgroundColor: palette.slice(0, pmLabels.length),
+          borderWidth: 2,
+          borderColor: "#ffffff"
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { position: "bottom", labels: { boxWidth: 12, font: { size: 11 } } },
+          tooltip: {
+            callbacks: {
+              label: function(ctx) {
+                return ctx.label + ": ₹ " + ctx.parsed.toLocaleString("en-IN", { minimumFractionDigits: 2 });
+              }
+            }
+          }
+        },
+        cutout: "60%"
+      }
+    });
+  }
+
+  // 3. Monthly Trend Chart
+  const mLabels = {{ monthly_labels_json|safe }};
+  const mVals = {{ monthly_values_json|safe }};
+
+  const mCtx = document.getElementById("monthlyTrendChart");
+  if (mCtx && mLabels.length > 0) {
+    new Chart(mCtx.getContext("2d"), {
+      type: "bar",
+      data: {
+        labels: mLabels,
+        datasets: [{
+          label: "Monthly Total (₹)",
+          data: mVals,
+          backgroundColor: "#4f46e5",
+          borderRadius: 6
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: function(ctx) { return "₹ " + ctx.parsed.y.toLocaleString("en-IN", { minimumFractionDigits: 2 }); }
+            }
+          }
+        },
+        scales: {
+          y: {
+            beginAtZero: true,
+            ticks: { callback: function(val) { return "₹" + val; } },
+            grid: { color: "#f1f5f9" }
+          },
+          x: { grid: { display: false } }
+        }
+      }
+    });
+  }
+
+  // 4. Daily Timeline Chart
+  const dLabels = {{ daily_labels_json|safe }};
+  const dVals = {{ daily_values_json|safe }};
+
+  const dCtx = document.getElementById("dailyTimelineChart");
+  if (dCtx && dLabels.length > 0) {
+    new Chart(dCtx.getContext("2d"), {
+      type: "line",
+      data: {
+        labels: dLabels,
+        datasets: [{
+          label: "Daily Spend (₹)",
+          data: dVals,
+          borderColor: "#10b981",
+          backgroundColor: "rgba(16, 185, 129, 0.1)",
+          borderWidth: 2,
+          fill: true,
+          tension: 0.25,
+          pointRadius: 2
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: function(ctx) { return "₹ " + ctx.parsed.y.toLocaleString("en-IN", { minimumFractionDigits: 2 }); }
+            }
+          }
+        },
+        scales: {
+          y: {
+            beginAtZero: true,
+            ticks: { callback: function(val) { return "₹" + val; } },
+            grid: { color: "#f1f5f9" }
+          },
+          x: { grid: { display: false } }
+        }
+      }
+    });
+  }
+});
+</script>
+{% endif %}
+{% endblock %}
